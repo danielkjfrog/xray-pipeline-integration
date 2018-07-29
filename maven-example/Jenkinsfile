@@ -1,0 +1,66 @@
+def rtServer, buildInfo, rtMaven, xrayConfig, xrayResults
+
+pipeline {
+    agent { label 'master' }
+    tools {
+        maven 'M3' //Make sure this tool in configured in Manage Jenkins -> Global Tool Configuration
+    }
+    parameters {
+        string (name: 'ART_URL', defaultValue: 'http://localhost:8081/artifactory', description: 'Artifactory where artifacts will be deployed/resolved')
+        string (name: 'ART_USER', defaultValue: 'admin', description: 'Artifactory user for deploy/resolve artifacts')
+        string (name: 'ART_PASSWORD', defaultValue: 'password', description: 'Artifactory password for deploy/resolve artifacts')
+        string (name: 'ART_RELEASE_REPO', defaultValue: 'libs-release', description: 'Virtual Repository where artifacts will be deployed/resolved (Releases)')
+        string (name: 'ART_SNAPSHOT_REPO', defaultValue: 'libs-snapshot', description: 'Virtual Repository where artifacts will be deployed/resolved (Snapshots)')
+        booleanParam (name: 'XRAY_SCAN', defaultValue: false, description: 'Scan artifacts using Xray')
+        booleanParam (name: 'FAIL_BUILD', defaultValue: false, description: 'Fail build if any violation is found in Xray')
+    }
+    stages {
+        stage('Init properties'){
+            steps {
+                script {
+                    rtServer = Artifactory.newServer url: "${params.ART_URL}", username: "${params.ART_USER}", password: "${params.ART_PASSWORD}"
+                    rtMaven = Artifactory.newMavenBuild()
+                    buildInfo = Artifactory.newBuildInfo()
+                    // This variables should be PARAMETERIZED
+                    rtMaven.deployer releaseRepo: 'libs-release', snapshotRepo: 'libs-release', server: rtServer
+                    rtMaven.resolver releaseRepo: 'libs-snapshot', snapshotRepo: 'libs-snapshot', server: rtServer
+                }
+            }
+        }
+        stage('Checkout'){
+            steps {
+                git url: 'https://github.com/jfrogdev/project-examples.git' //JFrog main project examples repository
+            }
+        }
+        stage('Install'){
+            steps {
+                script {
+                    rtMaven.run pom: 'maven-example/pom.xml', goals: 'clean install', buildInfo: buildInfo
+                }
+            }
+        }
+        stage('Publish'){
+            steps {
+                script {
+                    rtServer.publishBuildInfo buildInfo
+                }
+            }
+        }
+        stage('Xray Scan'){
+            when {
+                expression { return params.XRAY_SCAN }
+            }
+            steps {
+                script {
+                    xrayConfig = [
+                        'buildName'     : buildInfo.name,
+                        'buildNumber'    : buildInfo.number,
+                        'failBuild'     : "${params.FAIL_BUILD}".toBoolean()
+                    ]
+                    xrayResults = rtServer.xrayScan xrayConfig
+                    echo xrayResults as String
+                }
+            }
+        }
+    }
+}
