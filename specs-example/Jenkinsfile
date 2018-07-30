@@ -1,0 +1,57 @@
+def rtServer, downloadSpec, uploadSpec, buildInfo1, buildInfo2
+
+pipeline {
+    agent { label 'master' }
+    parameters {
+        string (name: 'ART_URL', defaultValue: 'http://localhost:8081/artifactory', description: 'Artifactory where artifacts will be deployed/resolved')
+        string (name: 'ART_USER', defaultValue: 'admin', description: 'Artifactory user for deploy/resolve artifacts')
+        string (name: 'ART_PASSWORD', defaultValue: 'password', description: 'Artifactory password for deploy/resolve artifacts')
+        booleanParam (name: 'XRAY_SCAN', defaultValue: false, description: 'Scan artifacts using Xray')
+        booleanParam (name: 'FAIL_BUILD', defaultValue: false, description: 'Fail build if any violation is found in Xray')
+    }
+    stages {
+        stage('Clone'){
+            steps {
+                git url: 'https://github.com/JFrog/project-examples.git'
+            }
+        }
+        stage('Artifactory download and upload'){
+            steps {
+                script{
+                    rtServer = Artifactory.newServer url: "${params.ART_URL}", username: "${params.ART_USER}", password: "${params.ART_PASSWORD}"
+
+                    // Read the download and upload specs:
+                    downloadSpec = readFile 'jenkins-examples/pipeline-examples/resources/props-download.json'
+                    uploadSpec = readFile 'jenkins-examples/pipeline-examples/resources/props-upload.json'
+
+                    // Download files from Artifactory:
+                    buildInfo1 = rtServer.download spec: downloadSpec
+                    // Upload files to Artifactory:
+                    buildInfo2 = rtServer.upload spec: uploadSpec
+
+                    // Merge the local download and upload build-info instances:
+                    buildInfo1.append buildInfo2
+
+                    // Publish the merged build-info to Artifactory
+                    rtServer.publishBuildInfo buildInfo1
+                }
+            }
+        }
+        stage('Xray Scan'){
+            when {
+                expression { return params.XRAY_SCAN }
+            }
+            steps {
+                script {
+                    xrayConfig = [
+                        'buildName'   : buildInfo1.name,
+                        'buildNumber' : buildInfo1.number,
+                        'failBuild'   : "${params.FAIL_BUILD}".toBoolean()
+                    ]
+                    xrayResults = rtServer.xrayScan xrayConfig
+                    echo xrayResults as String
+                }
+            }
+        }
+    }
+}
