@@ -1,0 +1,73 @@
+def rtServer, buildInfo, rtGradle
+
+pipeline {
+    agent { label 'master' }
+    parameters {
+        string (name: 'ART_URL', defaultValue: 'http://localhost:8081/artifactory', description: 'Artifactory where artifacts will be deployed/resolved')
+        string (name: 'ART_USER', defaultValue: 'admin', description: 'Artifactory user for deploy/resolve artifacts')
+        string (name: 'ART_PASSWORD', defaultValue: 'password', description: 'Artifactory password for deploy/resolve artifacts')
+        string (name: 'ART_RELEASE_REPO', defaultValue: 'libs-release', description: 'Virtual Repository where artifacts will be deployed/resolved (Releases)')
+        string (name: 'ART_SNAPSHOT_REPO', defaultValue: 'libs-snapshot', description: 'Virtual Repository where artifacts will be deployed/resolved (Snapshots)')
+        booleanParam (name: 'XRAY_SCAN', defaultValue: false, description: 'Scan artifacts using Xray')
+        booleanParam (name: 'FAIL_BUILD', defaultValue: false, description: 'Fail build if any violation is found in Xray')
+    }
+    stages {
+        stage('Init properties'){
+            steps {
+                script {
+                    rtServer = Artifactory.newServer url: "${params.ART_URL}", username: "${params.ART_USER}", password: "${params.ART_PASSWORD}"
+                    rtGradle = Artifactory.newGradleBuild()
+                    buildInfo = Artifactory.newBuildInfo()
+                    // This variables should be PARAMETERIZED
+                    rtGradle.deployer repo: 'libs-release-local', server: rtServer
+                    rtGradle.resolver repo: 'libs-release', server: rtServer
+                    rtGradle.deployer.deployArtifacts = false
+                    rtGradle.tool = 'G4'
+                }
+            }
+        }
+        stage('Checkout'){
+            steps {
+                git url: 'https://github.com/jfrogdev/project-examples.git' //JFrog main project examples repository
+            }
+        }
+        stage('Test'){
+            steps {
+                script {
+                    rtGradle.run rootDir: 'gradle-examples/gradle-example-ci-server/', buildFile: 'build.gradle', tasks: 'clean test'
+                }
+            }
+        }
+        stage('Deploy'){
+            steps {
+                script {
+                    rtGradle.run rootDir: 'gradle-examples/gradle-example-ci-server/', buildFile: 'build.gradle', tasks: 'artifactoryPublish', buildInfo: buildInfo
+                    rtGradle.deployer.deployArtifacts buildInfo
+                }
+            }
+        }
+        stage('Publish'){
+            steps {
+                script {
+                    rtServer.publishBuildInfo buildInfo
+                }
+            }
+        }
+        stage('Xray Scan'){
+            when {
+                expression { return params.XRAY_SCAN }
+            }
+            steps {
+                script {
+                    xrayConfig = [
+                        'buildName'     : buildInfo.name,
+                        'buildNumber'    : buildInfo.number,
+                        'failBuild'     : "${params.FAIL_BUILD}".toBoolean()
+                    ]
+                    xrayResults = rtServer.xrayScan xrayConfig
+                    echo xrayResults as String
+                }
+            }
+        }
+    }
+}
