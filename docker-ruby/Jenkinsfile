@@ -1,0 +1,68 @@
+def rtServer, rtDocker, buildInfo, privateDockerRegistry
+
+pipeline {
+    agent { label 'master' }
+    parameters {
+        string (name: 'ART_URL', defaultValue: 'http://localhost:8081/artifactory', description: 'Artifactory where artifacts will be deployed/resolved')
+        string (name: 'ART_USER', defaultValue: 'admin', description: 'Artifactory user for deploy/resolve artifacts')
+        string (name: 'ART_PASSWORD', defaultValue: 'password', description: 'Artifactory password for deploy/resolve artifacts')
+        string (name: 'DOCKER_REPO', defaultValue: 'docker', description: 'Docker repository for pull/push')
+        booleanParam (name: 'XRAY_SCAN', defaultValue: false, description: 'Scan artifacts using Xray')
+        booleanParam (name: 'FAIL_BUILD', defaultValue: false, description: 'Fail build if any violation is found in Xray')
+    }
+    stages {
+        stage('Clone'){
+            steps {
+                git url: 'https://github.com/danielkjfrog/xray-pipeline-integration.git'
+            }
+        }
+        stage('Setup'){
+            steps {
+                script{
+                    rtServer = Artifactory.newServer url: "${params.ART_URL}", username: "${params.ART_USER}", password: "${params.ART_PASSWORD}"
+                    rtDocker = Artifactory.docker server: rtServer
+                    privateDockerRegistry = "${params.ART_URL}" - "http://" - "/artifactory"
+                }
+            }
+        }
+        stage('Create Image'){
+            steps {
+                dir('docker-example/docker') {
+                    script{
+                        def dockerImage = docker.build("${privateDockerRegistry}/${params.DOCKER_REPO}/build-${JOB_NAME}:${BUILD_NUMBER}")
+                    }
+                }
+            }
+        }
+        stage('Deploy'){
+            steps {
+                script {
+                    buildInfo = rtDocker.push "${privateDockerRegistry}/${params.DOCKER_REPO}/build-${JOB_NAME}:${BUILD_NUMBER}", "docker"
+                }
+            }
+        }
+        stage('Publish'){
+            steps {
+                script {
+                    rtServer.publishBuildInfo buildInfo
+                }
+            }
+        }
+        stage('Xray Scan'){
+            when {
+                expression { return params.XRAY_SCAN }
+            }
+            steps {
+                script {
+                    xrayConfig = [
+                        'buildName'   : buildInfo.name,
+                        'buildNumber' : buildInfo.number,
+                        'failBuild'   : "${params.FAIL_BUILD}".toBoolean()
+                    ]
+                    xrayResults = rtServer.xrayScan xrayConfig
+                    echo xrayResults as String
+                }
+            }
+        }
+    }
+}
