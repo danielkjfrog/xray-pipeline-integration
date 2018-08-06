@@ -1,9 +1,1 @@
-{
-  "files": [
-    {
-      "pattern": "empty-build/Bazinga.zip",
-      "target": "Bazinga.zip",
-      "props": "p1=v1;p2=v2"
-    }
-  ]
-}
+
