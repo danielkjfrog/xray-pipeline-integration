@@ -25,15 +25,14 @@ pipeline {
                 script{
                     rtServer = Artifactory.newServer url: "${params.ART_URL}", username: "${params.ART_USER}", password: "${params.ART_PASSWORD}"
 
-                    // Read the download and upload specs:
+                    // Read the download specs:
                     uploadSpec = readFile 'empty-build/spec.json'
 
-                    // Upload to Artifactory.
-                    //def buildInfo = rtServer.upload spec: uploadSpec
-                    buildInfo = Artifactory.newBuildInfo()
+                    // Upload to Artifactory
+                    buildInfo = rtServer.upload spec: uploadSpec
+
                     // Publish the build-info to Artifactory
-                    //rtServer.publishBuildInfo buildInfo
-                    Artifactory.publishBuildInfo buildInfo
+                    rtServer.publishBuildInfo buildInfo
                     }
                 }
             }
