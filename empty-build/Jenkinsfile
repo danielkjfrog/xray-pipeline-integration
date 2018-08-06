@@ -29,7 +29,7 @@ pipeline {
                      uploadSpec = readFile 'empty-build/spec.json'
 
                      // Upload to Artifactory.
-                     def buildInfo1 = server.upload spec: uploadSpec
+                     def buildInfo1 = rtServer.upload spec: uploadSpec
 
                      // Publish the merged build-info to Artifactory
                      rtServer.publishBuildInfo buildInfo1
