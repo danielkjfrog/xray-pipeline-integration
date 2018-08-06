@@ -20,13 +20,16 @@ pipeline {
                 git url: 'https://github.com/AmitReuveni/xray-pipeline-integration.git'
             }
         }
-        stage('Artifactory download and upload'){
+        stage('Artifactory upload empty build'){
             steps {
                 script{
                      rtServer = Artifactory.newServer url: "${params.ART_URL}", username: "${params.ART_USER}", password: "${params.ART_PASSWORD}"
 
                      // Read the download and upload specs:
                      uploadSpec = readFile 'empty-build/spec.json'
+
+                     // Upload to Artifactory.
+                     def buildInfo1 = server.upload spec: uploadSpec
 
                      // Publish the merged build-info to Artifactory
                      rtServer.publishBuildInfo buildInfo1
