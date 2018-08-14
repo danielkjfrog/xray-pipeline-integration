@@ -15,37 +15,27 @@ pipeline {
         booleanParam (name: 'FAIL_BUILD', defaultValue: false, description: 'Fail build if any violation is found in Xray')
     }
     stages {
-        stage('Init properties'){
+        stage('Clone'){
             steps {
-                script {
+                git url: 'https://github.com/danielkjfrog/xray-pipeline-integration.git'
+            }
+        }
+        stage('Artifactory upload empty build'){
+            steps {
+                script{
                     rtServer = Artifactory.newServer url: "${params.ART_URL}", username: "${params.ART_USER}", password: "${params.ART_PASSWORD}"
-                    rtMaven = Artifactory.newMavenBuild()
-                    buildInfo = Artifactory.newBuildInfo()
-                    // These variables should be PARAMETERIZED
-                    rtMaven.deployer releaseRepo: 'libs-release', snapshotRepo: 'libs-release', server: rtServer
-                    rtMaven.resolver releaseRepo: 'libs-snapshot', snapshotRepo: 'libs-snapshot', server: rtServer
-                }
-            }
-        }
-        stage('Checkout'){
-            steps {
-                git url: 'https://github.com/jfrogdev/project-examples.git' //JFrog main project examples repository
-            }
-        }
-        stage('Install'){
-            steps {
-                script {
-                    rtMaven.run pom: 'maven-example/pom.xml', goals: 'clean install', buildInfo: buildInfo
-                }
-            }
-        }
-        stage('Publish'){
-            steps {
-                script {
+
+                    // Read the download specs:
+                    uploadSpec = readFile 'empty-build/spec.json'
+
+                    // Upload to Artifactory
+                    buildInfo = rtServer.upload spec: uploadSpec
+
+                    // Publish the build-info to Artifactory
                     rtServer.publishBuildInfo buildInfo
+                    }
                 }
             }
-        }
         stage('Xray Scan'){
             when {
                 expression { return params.XRAY_SCAN }

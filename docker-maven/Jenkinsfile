@@ -1,41 +1,43 @@
-def rtServer, buildInfo, rtMaven, xrayConfig, xrayResults
+def rtServer, rtDocker, buildInfo, privateDockerRegistry
 
 pipeline {
     agent { label 'master' }
-    tools {
-        maven 'M3' //Make sure this tool in configured in Manage Jenkins -> Global Tool Configuration
-    }
     parameters {
         string (name: 'ART_URL', defaultValue: 'http://localhost:8081/artifactory', description: 'Artifactory where artifacts will be deployed/resolved')
         string (name: 'ART_USER', defaultValue: 'admin', description: 'Artifactory user for deploy/resolve artifacts')
         string (name: 'ART_PASSWORD', defaultValue: 'password', description: 'Artifactory password for deploy/resolve artifacts')
-        string (name: 'ART_RELEASE_REPO', defaultValue: 'libs-release', description: 'Virtual Repository where artifacts will be deployed/resolved (Releases)')
-        string (name: 'ART_SNAPSHOT_REPO', defaultValue: 'libs-snapshot', description: 'Virtual Repository where artifacts will be deployed/resolved (Snapshots)')
+        string (name: 'DOCKER_REPO', defaultValue: 'docker', description: 'Docker repository for pull/push')
         booleanParam (name: 'XRAY_SCAN', defaultValue: false, description: 'Scan artifacts using Xray')
         booleanParam (name: 'FAIL_BUILD', defaultValue: false, description: 'Fail build if any violation is found in Xray')
     }
     stages {
-        stage('Init properties'){
+        stage('Clone'){
             steps {
-                script {
+                git url: 'https://github.com/danielkjfrog/xray-pipeline-integration.git'
+            }
+        }
+        stage('Setup'){
+            steps {
+                script{
                     rtServer = Artifactory.newServer url: "${params.ART_URL}", username: "${params.ART_USER}", password: "${params.ART_PASSWORD}"
-                    rtMaven = Artifactory.newMavenBuild()
-                    buildInfo = Artifactory.newBuildInfo()
-                    // These variables should be PARAMETERIZED
-                    rtMaven.deployer releaseRepo: 'libs-release', snapshotRepo: 'libs-release', server: rtServer
-                    rtMaven.resolver releaseRepo: 'libs-snapshot', snapshotRepo: 'libs-snapshot', server: rtServer
+                    rtDocker = Artifactory.docker server: rtServer
+                    privateDockerRegistry = "${params.ART_URL}" - "http://" - "/artifactory"
                 }
             }
         }
-        stage('Checkout'){
+        stage('Create Image'){
             steps {
-                git url: 'https://github.com/jfrogdev/project-examples.git' //JFrog main project examples repository
+                dir('docker-maven/docker') {
+                    script{
+                        def dockerImage = docker.build("${privateDockerRegistry}/${params.DOCKER_REPO}/build-${JOB_NAME}:${BUILD_NUMBER}")
+                    }
+                }
             }
         }
-        stage('Install'){
+        stage('Deploy'){
             steps {
                 script {
-                    rtMaven.run pom: 'maven-example/pom.xml', goals: 'clean install', buildInfo: buildInfo
+                    buildInfo = rtDocker.push "${privateDockerRegistry}/${params.DOCKER_REPO}/build-${JOB_NAME}:${BUILD_NUMBER}", "docker"
                 }
             }
         }
@@ -53,9 +55,9 @@ pipeline {
             steps {
                 script {
                     xrayConfig = [
-                        'buildName'     : buildInfo.name,
-                        'buildNumber'    : buildInfo.number,
-                        'failBuild'     : "${params.FAIL_BUILD}".toBoolean()
+                        'buildName'   : buildInfo.name,
+                        'buildNumber' : buildInfo.number,
+                        'failBuild'   : "${params.FAIL_BUILD}".toBoolean()
                     ]
                     xrayResults = rtServer.xrayScan xrayConfig
                     echo xrayResults as String
