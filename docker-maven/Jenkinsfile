@@ -4,6 +4,7 @@ pipeline {
     agent { label 'master' }
     parameters {
         string (name: 'ART_URL', defaultValue: 'http://localhost:8081/artifactory', description: 'Artifactory where artifacts will be deployed/resolved')
+        string (name: 'DOCKER_PRIVATE_REGISTRY', defaultValue: 'localhost:8081', description: 'Private registry for push/pull')
         string (name: 'ART_USER', defaultValue: 'admin', description: 'Artifactory user for deploy/resolve artifacts')
         string (name: 'ART_PASSWORD', defaultValue: 'password', description: 'Artifactory password for deploy/resolve artifacts')
         string (name: 'DOCKER_REPO', defaultValue: 'docker', description: 'Docker repository for pull/push')
@@ -21,7 +22,6 @@ pipeline {
                 script{
                     rtServer = Artifactory.newServer url: "${params.ART_URL}", username: "${params.ART_USER}", password: "${params.ART_PASSWORD}"
                     rtDocker = Artifactory.docker server: rtServer
-                    privateDockerRegistry = "${params.ART_URL}" - "http://" - "/artifactory"
                 }
             }
         }
@@ -29,7 +29,7 @@ pipeline {
             steps {
                 dir('docker-maven/docker') {
                     script{
-                        def dockerImage = docker.build("${privateDockerRegistry}/${params.DOCKER_REPO}/build-${JOB_NAME}:${BUILD_NUMBER}")
+                        def dockerImage = docker.build("${params.DOCKER_PRIVATE_REGISTRY}/build-${JOB_NAME}:${BUILD_NUMBER}")
                     }
                 }
             }
@@ -37,7 +37,7 @@ pipeline {
         stage('Deploy'){
             steps {
                 script {
-                    buildInfo = rtDocker.push "${privateDockerRegistry}/${params.DOCKER_REPO}/build-${JOB_NAME}:${BUILD_NUMBER}", "docker"
+                    buildInfo = rtDocker.push "${params.DOCKER_PRIVATE_REGISTRY}/build-${JOB_NAME}:${BUILD_NUMBER}", "${params.DOCKER_REPO}"
                 }
             }
         }
