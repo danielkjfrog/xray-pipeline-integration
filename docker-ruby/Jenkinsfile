@@ -37,7 +37,7 @@ pipeline {
         stage('Deploy'){
             steps {
                 script {
-                    buildInfo = rtDocker.push "${privateDockerRegistry}/${params.DOCKER_REPO}/build-${JOB_NAME}:${BUILD_NUMBER}", "docker"
+                    buildInfo = rtDocker.push "${privateDockerRegistry}/${params.DOCKER_REPO}/build-${JOB_NAME}:${BUILD_NUMBER}", ${params.DOCKER_REPO}
                 }
             }
         }
