@@ -3,6 +3,7 @@ def rtServer, buildInfo, rtMaven, xrayConfig, xrayResults
 pipeline {
     agent { label 'master' }
     tools {
+        jdk 'JDK8' //Make sure this tool in configured in Manage Jenkins -> Global Tool Configuration
         maven 'M3' //Make sure this tool in configured in Manage Jenkins -> Global Tool Configuration
     }
     parameters {
