@@ -22,8 +22,8 @@ pipeline {
                     rtNpm = Artifactory.newNpmBuild()
                     buildInfo = Artifactory.newBuildInfo()
                     // This variables should be PARAMETERIZED
-                    rtNpm.deployer repo: "${ART_REPO}", server: rtServer
-                    rtNpm.resolver repo: "${ART_REPO}", server: rtServer
+                    rtNpm.deployer repo: "${ART_REPO}".toString(), server: rtServer
+                    rtNpm.resolver repo: "${ART_REPO}".toString(), server: rtServer
                     rtNpm.deployer.deployArtifacts = false
                     rtNpm.executablePath = (String) "$NODEJS_HOME/bin/npm"
                 }
