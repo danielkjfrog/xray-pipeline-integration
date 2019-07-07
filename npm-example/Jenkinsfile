@@ -2,6 +2,9 @@ def rtServer, buildInfo, rtNpm
 
 pipeline {
     agent { label 'master' }
+    tools {
+      nodejs 'NJS11'
+    }
     parameters {
         string (name: 'ART_URL', defaultValue: 'http://localhost:8081/artifactory', description: 'Artifactory where artifacts will be deployed/resolved')
         string (name: 'ART_USER', defaultValue: 'admin', description: 'Artifactory user for deploy/resolve artifacts')
@@ -10,7 +13,6 @@ pipeline {
         booleanParam (name: 'XRAY_SCAN', defaultValue: false, description: 'Scan artifacts using Xray')
         booleanParam (name: 'FAIL_BUILD', defaultValue: false, description: 'Fail build if any violation is found in Xray')
     }
-    
     stages {
         stage('Init properties'){
             steps {
