@@ -1,0 +1,17 @@
+appnope==0.1.0
+backcall==0.1.0
+beautifulsoup4==4.6.3
+bleach==2.1.4
+certifi==2018.8.24
+chardet==3.0.4
+Click==7.0
+cycler==0.10.0
+decorator==4.3.0
+defusedxml==0.5.0
+entrypoints==0.2.3
+Flask==1.0.2
+google==2.0.1
+google-cloud==0.34.0
+gtfs-realtime-bindings==0.0.5
+html5lib==1.0.1
+idna==2.7

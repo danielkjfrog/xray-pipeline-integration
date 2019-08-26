@@ -1,3 +1,5 @@
-FROM alang/django:2.0-python3
+FROM python:3.7
 
-RUN echo 'JFrog QA Team' > /tmp/qa.txt
+ADD requirements.txt /app/requirements.txt
+
+RUN pip install -r /app/requirements.txt
