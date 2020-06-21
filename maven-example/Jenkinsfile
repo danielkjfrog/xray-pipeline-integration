@@ -23,8 +23,8 @@ pipeline {
                     rtMaven = Artifactory.newMavenBuild()
                     buildInfo = Artifactory.newBuildInfo()
                     // These variables should be PARAMETERIZED
-                    rtMaven.deployer releaseRepo: 'libs-release', snapshotRepo: 'libs-release', server: rtServer
-                    rtMaven.resolver releaseRepo: 'libs-snapshot', snapshotRepo: 'libs-snapshot', server: rtServer
+                    rtMaven.deployer releaseRepo: "${params.ART_RELEASE_REPO}", snapshotRepo: '"${params.ART_SNAPSHOT_REPO}", server: rtServer
+                    rtMaven.resolver releaseRepo: 'jcenter', snapshotRepo: 'jcenter', server: rtServer
                 }
             }
         }
