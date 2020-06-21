@@ -19,13 +19,11 @@ pipeline {
         stage('Init properties'){
             steps {
                 script {
-                    releaseRepo = "${params.ART_RELEASE_REPO}"
-                    snapshotRepo = "${params.ART_SNAPSHOT_REPO}"
                     rtServer = Artifactory.newServer url: "${params.ART_URL}", username: "${params.ART_USER}", password: "${params.ART_PASSWORD}"
                     rtMaven = Artifactory.newMavenBuild()
                     buildInfo = Artifactory.newBuildInfo()
                     // These variables should be PARAMETERIZED
-                    rtMaven.deployer releaseRepo: releaseRepo, snapshotRepo: snapshotRepo, server: rtServer
+                    rtMaven.deployer releaseRepo: 'libs-release', snapshotRepo: 'libs-snapshot', server: rtServer
                     rtMaven.resolver releaseRepo: 'jcenter', snapshotRepo: 'jcenter', server: rtServer
                 }
             }
